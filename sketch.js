@@ -3,10 +3,12 @@ let platforms = [];
 let camX = 0;
 let coins = [];
 let enemies = [];
-let goal;
 let score = 0;
 let gameState = "playing";
 let messageTimer = 0;
+let illusionRoom;
+let illusionKeyTaken = false;
+let endDoors;
 
 const GRAVITY = 0.9;
 const JUMP_V = -15;
@@ -32,8 +34,19 @@ function setup() {
         { x: 820, y: height - 220, w: 220, h: 26, depth: 2 },
         { x: 1180, y: height - 300, w: 260, h: 26, depth: 1 },
         { x: 1560, y: height - 190, w: 260, h: 26, depth: 2 },
-        { x: 1960, y: height - 260, w: 260, h: 26, depth: 1 }
+        { x: 1960, y: height - 260, w: 520, h: 26, depth: 1 }
     ];
+
+    illusionRoom = {
+        x: 1120,
+        w: 520,
+        floorY: height - 140,
+
+        realDoor: { x: 1510, y: height - 380, w: 70, h: 120 },
+        fakeDoor: { x: 1360, y: height - 410, w: 110, h: 150 },
+        occluder: { x: 1250, y: height - 360, w: 140, h: 260 },
+        key: { x: 1295, y: height - 320, r: 12 }
+    };
 
     coins = [
         { x: 320, y: height - 200, r: 10, taken: false },
@@ -48,7 +61,10 @@ function setup() {
         makeEnemy(1700, height - 156, 34, 26, 1.9, 1560, 1860)
     ];
 
-    goal = { x: 2150, y: height - 290, w: 30, h: 150 };
+    endDoors = {
+        realDoor: { x: 2150, y: height - 380, w: 70, h: 120 },
+        fakeDoor: { x: 2300, y: height - 410, w: 110, h: 150 }
+    };
 
 }
 
@@ -70,12 +86,18 @@ function draw() {
     const sortedPlatforms = [...platforms].sort((a, b) => a.depth - b.depth);
     for (const p of sortedPlatforms) drawBlockPlatform(p);
 
+    drawIllusionRoom();
+    drawIllusionKey();
+
     drawCoins();
     updateEnemies();
     drawEnemies();
-    drawGoal();
+    drawEndDoors();
 
     updatePlayer();
+    checkEndDoorWin();
+    checkFakeDoorTrap();
+
     drawPlayer();
 
     pop();
@@ -89,25 +111,25 @@ function draw() {
 }
 
 function drawOverlayMessage() {
-  fill(0, 0, 0, 180);
-  rect(0, 0, width, height);
+    fill(0, 0, 0, 180);
+    rect(0, 0, width, height);
 
-  textAlign(CENTER, CENTER);
-  textSize(48);
+    textAlign(CENTER, CENTER);
+    textSize(48);
 
-  if (gameState === "dead") {
-    fill(255, 80, 80);
-    text("YOU DIED", width / 2, height / 2);
-  } else if (gameState === "won") {
-    fill(100, 255, 140);
-    text("LEVEL COMPLETE!", width / 2, height / 2);
-  }
+    if (gameState === "dead") {
+        fill(255, 80, 80);
+        text("YOU DIED", width / 2, height / 2);
+    } else if (gameState === "won") {
+        fill(100, 255, 140);
+        text("LEVEL COMPLETE!", width / 2, height / 2);
+    }
 
-  messageTimer--;
+    messageTimer--;
 
-  if (messageTimer <= 0) {
-    resetLevel();
-  }
+    if (messageTimer <= 0) {
+        resetLevel();
+    }
 }
 
 function updateCamera() {
@@ -164,6 +186,131 @@ function drawCoins() {
     }
 }
 
+function drawIllusionRoom() {
+    if (!illusionRoom) return;
+
+    const roomLeft = illusionRoom.x;
+    const roomRight = illusionRoom.x + illusionRoom.w;
+
+    if (player.x < roomLeft - 600 || player.x > roomRight + 600) return;
+
+    noStroke();
+    fill(30, 30, 45, 80);
+    rect(roomLeft, 0, illusionRoom.w, height);
+
+    for (let i = 0; i < 14; i++) {
+        const t = i / 13;
+        const y = lerp(illusionRoom.floorY - 10, illusionRoom.floorY - 220, t);
+        const inset = 20 + t * 140;
+        stroke(255, 255, 255, 18);
+        line(roomLeft + inset, y, roomRight - inset, y);
+    }
+    noStroke();
+
+    const parallaxShift = (camX * 0.10);
+    const o = illusionRoom.occluder;
+
+    fill(10, 10, 14, 220);
+    rect(o.x + parallaxShift, o.y, o.w, o.h, 10);
+
+    fill(255, 255, 255, 35);
+    rect(o.x + parallaxShift + o.w - 6, o.y + 10, 4, o.h - 20, 6);
+
+    fill(255, 255, 255, 160);
+    textSize(16);
+    textAlign(LEFT, BASELINE);
+    text("Find the key (it reveals as you move)", roomLeft + 20, height - 320);
+
+}
+
+function drawKeyVisual(x, y, s = 1) {
+    push();
+    translate(x, y);
+    scale(s);
+
+    noStroke();
+    fill(0, 0, 0, 55);
+    ellipse(4, 10, 34, 10);
+
+    const gold = color(255, 215, 120, 240);
+    const goldDark = color(210, 160, 70, 240);
+    const shine = color(255, 255, 255, 140);
+
+    fill(gold);
+    ellipse(0, 0, 18, 18);
+    fill(25, 25, 30, 140);
+    ellipse(0, 0, 8, 8);
+
+    fill(gold);
+    rect(6, -3, 22, 6, 3);
+
+    fill(goldDark);
+    rect(22, 2, 6, 6, 2);
+    rect(28, 2, 5, 4, 2);
+
+    fill(shine);
+    ellipse(-3, -3, 6, 6);
+    rect(8, -2, 10, 2, 2);
+
+    pop();
+}
+
+function drawIllusionKey() {
+    if (!illusionRoom || illusionKeyTaken) return;
+
+    const k = illusionRoom.key;
+    const o = illusionRoom.occluder;
+
+    const keyX = k.x;
+
+    const parallaxShift = camX * 0.18;
+    const occluderLeft = o.x + parallaxShift;
+    const occluderRight = occluderLeft + o.w;
+
+    const keyHidden = (keyX >= occluderLeft && keyX <= occluderRight);
+
+    if (!keyHidden) {
+        drawKeyVisual(keyX, k.y, 1.0);
+    }
+
+    if (rectCircleHit(player.x, player.y, player.w, player.h, keyX, k.y, 16)) {
+        illusionKeyTaken = true;
+    }
+}
+
+
+
+function drawDoorVisual(x, y, w, h, isFake) {
+    fill(0, 0, 0, 70);
+    rect(x + 8, y + 10, w, h, 10);
+
+    fill(isFake ? 140 : 110, isFake ? 190 : 160, 255, 230);
+    rect(x, y, w, h, 10);
+
+    fill(40, 40, 60, 120);
+    rect(x + 8, y + 10, w - 16, h - 20, 8);
+
+    fill(255, 230, 140, 220);
+    ellipse(x + w * 0.75, y + h * 0.55, 10, 10);
+
+    fill(255, 255, 255, 150);
+    textSize(12);
+    textAlign(CENTER, CENTER);
+    text(isFake ? "FAKE" : "REAL", x + w / 2, y + h + 14);
+}
+
+function drawEndDoors() {
+    if (!endDoors) return;
+
+    drawDoorVisual(endDoors.fakeDoor.x, endDoors.fakeDoor.y, endDoors.fakeDoor.w, endDoors.fakeDoor.h, true);
+    drawDoorVisual(endDoors.realDoor.x, endDoors.realDoor.y, endDoors.realDoor.w, endDoors.realDoor.h, false);
+
+    fill(255, 255, 255, 140);
+    textSize(14);
+    textAlign(LEFT, BASELINE);
+    text("Exit: choose wisely", endDoors.realDoor.x - 40, endDoors.realDoor.y - 14);
+}
+
 function updateEnemies() {
     if (gameState !== "playing") return;
     for (const e of enemies) {
@@ -210,24 +357,6 @@ function drawEnemies() {
         ellipse(e.x + e.w * 0.35, e.y + e.h * 0.45, 4, 6);
         ellipse(e.x + e.w * 0.65, e.y + e.h * 0.45, 4, 6);
     }
-}
-
-function drawGoal() {
-    noStroke();
-    fill(230, 230, 240, 200);
-    rect(goal.x, goal.y, 6, goal.h);
-
-    fill(140, 200, 255, 220);
-    rect(goal.x + 6, goal.y + 10, goal.w, 18, 4);
-
-    if (rectRectHit(player.x, player.y, player.w, player.h, goal.x, goal.y, goal.w + 6, goal.h)) {
-        if (gameState === "playing") {
-            gameState = "won";
-            messageTimer = 120;
-        }
-
-    }
-
 }
 
 function rectRectHit(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -283,14 +412,13 @@ function updatePlayer() {
             player.vy = 0;
             player.onGround = true;
         }
-        jumpQueued = false;
     }
 
     if (player.y > height + 400 && gameState === "playing") {
         gameState = "dead";
         messageTimer = 120;
     }
-
+    jumpQueued = false;
 }
 
 function resetLevel() {
@@ -313,13 +441,12 @@ function resetLevel() {
     jumpQueued = false;
 
     gameState = "playing";
+
+    illusionKeyTaken = false;
 }
 
 function resetPlayer() {
-    function resetPlayer() {
-        resetLevel();
-    }
-
+    resetLevel();
 }
 
 function drawPlayer() {
@@ -371,6 +498,30 @@ function drawBlockPlatform(p) {
     quad(x + w, y, x + w + 16, y + 8, x + w + 16, y + h + thickness + 6, x + w, y + h + thickness);
 }
 
+function checkEndDoorWin() {
+    if (gameState !== "playing") return;
+    if (!illusionKeyTaken) return;
+
+    if (!endDoors) return;
+
+    const d = endDoors.realDoor;
+    if (rectRectHit(player.x, player.y, player.w, player.h, d.x, d.y, d.w, d.h)) {
+        gameState = "won";
+        messageTimer = 120;
+    }
+}
+
+function checkFakeDoorTrap() {
+    if (gameState !== "playing") return;
+    if (!endDoors) return;
+
+    const f = endDoors.fakeDoor;
+    if (rectRectHit(player.x, player.y, player.w, player.h, f.x, f.y, f.w, f.h)) {
+        gameState = "dead";
+        messageTimer = 120;
+    }
+}
+
 function keyPressed() {
     if (keyCode === 32) jumpQueued = true;
 }
@@ -380,6 +531,7 @@ function drawHUD() {
     textSize(14);
     text("Arrows: move | Space: jump", 16, 44);
     text(`Score: ${score}`, 16, 66);
+    text(`Key: ${illusionKeyTaken ? "✓" : "—"}`, 16, 88);
 }
 
 function windowResized() {
@@ -389,6 +541,8 @@ function windowResized() {
     platforms[2].y = height - 300;
     platforms[3].y = height - 190;
     platforms[4].y = height - 260;
+    platforms[4].w = 520;
+
     coins = [
         { x: 320, y: height - 200, r: 10, taken: false },
         { x: 560, y: height - 200, r: 10, taken: false },
@@ -402,6 +556,20 @@ function windowResized() {
         makeEnemy(1700, height - 156, 34, 26, 1.9, 1560, 1860)
     ];
 
-    goal = { x: 2150, y: height - 290, w: 30, h: 150 };
+    illusionRoom = {
+        x: 1120,
+        w: 520,
+        floorY: height - 140,
+        realDoor: { x: 1510, y: height - 380, w: 70, h: 120 },
+        fakeDoor: { x: 1360, y: height - 410, w: 110, h: 150 },
+        occluder: { x: 1250, y: height - 360, w: 140, h: 260 },
+        key: { x: 1295, y: height - 320, r: 12 }
+    };
+
+
+    endDoors = {
+        realDoor: { x: 2150, y: height - 380, w: 70, h: 120 },
+        fakeDoor: { x: 2300, y: height - 410, w: 110, h: 150 }
+    };
 
 }
