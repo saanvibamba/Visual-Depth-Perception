@@ -9,6 +9,11 @@ let messageTimer = 0;
 let illusionRoom;
 let illusionKeyTaken = false;
 let endDoors;
+let jumpQueued = false;
+let keyBlock;
+let keySpawned = false;
+let keyPos;
+
 
 const GRAVITY = 0.9;
 const JUMP_V = -15;
@@ -44,9 +49,19 @@ function setup() {
 
         realDoor: { x: 1510, y: height - 380, w: 70, h: 120 },
         fakeDoor: { x: 1360, y: height - 410, w: 110, h: 150 },
-        occluder: { x: 1250, y: height - 360, w: 140, h: 260 },
-        key: { x: 1295, y: height - 320, r: 12 }
     };
+
+    keyBlock = {
+        x: illusionRoom.x + 220,
+        y: height - 420,
+        w: 44,
+        h: 44,
+        activated: false
+    };
+
+    keyPos = { x: keyBlock.x + keyBlock.w / 2, y: keyBlock.y - 22 };
+    keySpawned = false;
+    illusionKeyTaken = false;
 
     coins = [
         { x: 320, y: height - 200, r: 10, taken: false },
@@ -87,7 +102,9 @@ function draw() {
     for (const p of sortedPlatforms) drawBlockPlatform(p);
 
     drawIllusionRoom();
-    drawIllusionKey();
+    drawKeyBlock();
+    drawKeyAndPickup();
+
 
     drawCoins();
     updateEnemies();
@@ -207,20 +224,28 @@ function drawIllusionRoom() {
     }
     noStroke();
 
-    const parallaxShift = (camX * 0.10);
-    const o = illusionRoom.occluder;
-
-    fill(10, 10, 14, 220);
-    rect(o.x + parallaxShift, o.y, o.w, o.h, 10);
-
-    fill(255, 255, 255, 35);
-    rect(o.x + parallaxShift + o.w - 6, o.y + 10, 4, o.h - 20, 6);
-
     fill(255, 255, 255, 160);
     textSize(16);
     textAlign(LEFT, BASELINE);
-    text("Find the key (it reveals as you move)", roomLeft + 20, height - 320);
+    text("Hint: jump!)", roomLeft + 20, height - 320);
 
+}
+
+function drawKeyBlock() {
+    if (!keyBlock) return;
+
+    push();
+    noFill();
+    stroke(255, 255, 255, keyBlock.activated ? 160 : 25);
+    strokeWeight(2);
+    rect(keyBlock.x, keyBlock.y, keyBlock.w, keyBlock.h, 6);
+
+    if (keyBlock.activated) {
+        noStroke();
+        fill(255, 255, 255, 18);
+        rect(keyBlock.x, keyBlock.y, keyBlock.w, keyBlock.h, 6);
+    }
+    pop();
 }
 
 function drawKeyVisual(x, y, s = 1) {
@@ -255,30 +280,48 @@ function drawKeyVisual(x, y, s = 1) {
     pop();
 }
 
-function drawIllusionKey() {
-    if (!illusionRoom || illusionKeyTaken) return;
+function drawKeyAndPickup() {
+    if (!keyBlock || !keyBlock.activated || illusionKeyTaken) return;
 
-    const k = illusionRoom.key;
-    const o = illusionRoom.occluder;
+    const kx = keyPos.x;
+    const ky = keyPos.y;
 
-    const keyX = k.x;
+    drawKeyVisual(kx, ky, 1.0);
 
-    const parallaxShift = camX * 0.18;
-    const occluderLeft = o.x + parallaxShift;
-    const occluderRight = occluderLeft + o.w;
-
-    const keyHidden = (keyX >= occluderLeft && keyX <= occluderRight);
-
-    if (!keyHidden) {
-        drawKeyVisual(keyX, k.y, 1.0);
-    }
-
-    if (rectCircleHit(player.x, player.y, player.w, player.h, keyX, k.y, 16)) {
+    if (rectCircleHit(player.x, player.y, player.w, player.h, kx, ky, 16)) {
         illusionKeyTaken = true;
     }
 }
 
+function handleKeyBlockCollision() {
+    if (!keyBlock) return;
 
+    const bx = keyBlock.x, by = keyBlock.y, bw = keyBlock.w, bh = keyBlock.h;
+
+    const prevTop = (player.y - player.vy);
+    const currTop = player.y;
+    const blockBottom = by + bh;
+
+    const withinX = (player.x + player.w > bx) && (player.x < bx + bw);
+
+    if (withinX && player.vy < 0 && prevTop >= blockBottom && currTop <= blockBottom) {
+        player.y = blockBottom;
+        player.vy = 0;
+
+        keyBlock.activated = true;
+    }
+
+    if (keyBlock.activated) {
+        const playerBottom = player.y + player.h;
+        const prevBottom = (player.y - player.vy) + player.h;
+
+        if (withinX && prevBottom <= by && playerBottom >= by) {
+            player.y = by - player.h;
+            player.vy = 0;
+            player.onGround = true;
+        }
+    }
+}
 
 function drawDoorVisual(x, y, w, h, isFake) {
     fill(0, 0, 0, 70);
@@ -414,6 +457,8 @@ function updatePlayer() {
         }
     }
 
+    handleKeyBlockCollision();
+
     if (player.y > height + 400 && gameState === "playing") {
         gameState = "dead";
         messageTimer = 120;
@@ -443,6 +488,11 @@ function resetLevel() {
     gameState = "playing";
 
     illusionKeyTaken = false;
+    keyBlock.activated = false;
+    keySpawned = false;
+    illusionKeyTaken = false;
+    keyPos = { x: keyBlock.x + keyBlock.w / 2, y: keyBlock.y - 22 };
+
 }
 
 function resetPlayer() {
@@ -561,15 +611,24 @@ function windowResized() {
         w: 520,
         floorY: height - 140,
         realDoor: { x: 1510, y: height - 380, w: 70, h: 120 },
-        fakeDoor: { x: 1360, y: height - 410, w: 110, h: 150 },
-        occluder: { x: 1250, y: height - 360, w: 140, h: 260 },
-        key: { x: 1295, y: height - 320, r: 12 }
+        fakeDoor: { x: 1360, y: height - 410, w: 110, h: 150 }
     };
-
 
     endDoors = {
         realDoor: { x: 2150, y: height - 380, w: 70, h: 120 },
         fakeDoor: { x: 2300, y: height - 410, w: 110, h: 150 }
     };
+
+    keyBlock = {
+        x: illusionRoom.x + 220,
+        y: height - 420,
+        w: 44,
+        h: 44,
+        activated: false
+    };
+
+    keyPos = { x: keyBlock.x + keyBlock.w / 2, y: keyBlock.y - 22 };
+    keySpawned = false;
+    illusionKeyTaken = false;
 
 }
