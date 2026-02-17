@@ -8,7 +8,7 @@ let gameState = "playing";
 let messageTimer = 0;
 let illusionRoom;
 let illusionKeyTaken = false;
-let endDoors;
+let endDoor;
 let jumpQueued = false;
 let keyBlock;
 let keySpawned = false;
@@ -45,11 +45,11 @@ function setup() {
     illusionRoom = {
         x: 1120,
         w: 520,
-        floorY: height - 140,
-
-        realDoor: { x: 1510, y: height - 380, w: 70, h: 120 },
-        fakeDoor: { x: 1360, y: height - 410, w: 110, h: 150 },
+        floorY: height - 140
     };
+
+    endDoor = { x: 2300, y: height - 410, w: 110, h: 150 };
+
 
     keyBlock = {
         x: illusionRoom.x + 220,
@@ -76,11 +76,7 @@ function setup() {
         makeEnemy(1700, height - 156, 34, 26, 1.9, 1560, 1860)
     ];
 
-    endDoors = {
-        realDoor: { x: 2150, y: height - 380, w: 70, h: 120 },
-        fakeDoor: { x: 2300, y: height - 410, w: 110, h: 150 }
-    };
-
+    endDoor = { x: 2300, y: height - 410, w: 110, h: 150 };
 }
 
 function makeEnemy(x, y, w, h, vx, minX, maxX) {
@@ -109,11 +105,10 @@ function draw() {
     drawCoins();
     updateEnemies();
     drawEnemies();
-    drawEndDoors();
+    drawEndDoor();
 
     updatePlayer();
     checkEndDoorWin();
-    checkFakeDoorTrap();
 
     drawPlayer();
 
@@ -227,7 +222,7 @@ function drawIllusionRoom() {
     fill(255, 255, 255, 160);
     textSize(16);
     textAlign(LEFT, BASELINE);
-    text("Hint: jump!)", roomLeft + 20, height - 320);
+    text("Hint: jump!", roomLeft + 20, height - 320);
 
 }
 
@@ -323,36 +318,31 @@ function handleKeyBlockCollision() {
     }
 }
 
-function drawDoorVisual(x, y, w, h, isFake) {
-    fill(0, 0, 0, 70);
-    rect(x + 8, y + 10, w, h, 10);
+function drawEndDoor() {
+    if (!endDoor) return;
 
-    fill(isFake ? 140 : 110, isFake ? 190 : 160, 255, 230);
-    rect(x, y, w, h, 10);
+    fill(0, 0, 0, 70);
+    rect(endDoor.x + 8, endDoor.y + 10, endDoor.w, endDoor.h, 12);
+
+    if (!illusionKeyTaken) {
+        fill(140, 140, 160, 220);
+    } else {
+        fill(110, 160, 255, 230);
+    }
+    rect(endDoor.x, endDoor.y, endDoor.w, endDoor.h, 12);
 
     fill(40, 40, 60, 120);
-    rect(x + 8, y + 10, w - 16, h - 20, 8);
+    rect(endDoor.x + 10, endDoor.y + 12, endDoor.w - 20, endDoor.h - 24, 10);
 
     fill(255, 230, 140, 220);
-    ellipse(x + w * 0.75, y + h * 0.55, 10, 10);
+    ellipse(endDoor.x + endDoor.w * 0.78, endDoor.y + endDoor.h * 0.55, 10, 10);
 
-    fill(255, 255, 255, 150);
-    textSize(12);
-    textAlign(CENTER, CENTER);
-    text(isFake ? "FAKE" : "REAL", x + w / 2, y + h + 14);
-}
-
-function drawEndDoors() {
-    if (!endDoors) return;
-
-    drawDoorVisual(endDoors.fakeDoor.x, endDoors.fakeDoor.y, endDoors.fakeDoor.w, endDoors.fakeDoor.h, true);
-    drawDoorVisual(endDoors.realDoor.x, endDoors.realDoor.y, endDoors.realDoor.w, endDoors.realDoor.h, false);
-
-    fill(255, 255, 255, 140);
+    fill(255, 255, 255, 160);
     textSize(14);
-    textAlign(LEFT, BASELINE);
-    text("Exit: choose wisely", endDoors.realDoor.x - 40, endDoors.realDoor.y - 14);
+    textAlign(CENTER, CENTER);
+    text(illusionKeyTaken ? "EXIT" : "LOCKED", endDoor.x + endDoor.w / 2, endDoor.y + endDoor.h + 16);
 }
+
 
 function updateEnemies() {
     if (gameState !== "playing") return;
@@ -551,23 +541,10 @@ function drawBlockPlatform(p) {
 function checkEndDoorWin() {
     if (gameState !== "playing") return;
     if (!illusionKeyTaken) return;
+    if (!endDoor) return;
 
-    if (!endDoors) return;
-
-    const d = endDoors.realDoor;
-    if (rectRectHit(player.x, player.y, player.w, player.h, d.x, d.y, d.w, d.h)) {
+    if (rectRectHit(player.x, player.y, player.w, player.h, endDoor.x, endDoor.y, endDoor.w, endDoor.h)) {
         gameState = "won";
-        messageTimer = 120;
-    }
-}
-
-function checkFakeDoorTrap() {
-    if (gameState !== "playing") return;
-    if (!endDoors) return;
-
-    const f = endDoors.fakeDoor;
-    if (rectRectHit(player.x, player.y, player.w, player.h, f.x, f.y, f.w, f.h)) {
-        gameState = "dead";
         messageTimer = 120;
     }
 }
@@ -609,15 +586,10 @@ function windowResized() {
     illusionRoom = {
         x: 1120,
         w: 520,
-        floorY: height - 140,
-        realDoor: { x: 1510, y: height - 380, w: 70, h: 120 },
-        fakeDoor: { x: 1360, y: height - 410, w: 110, h: 150 }
+        floorY: height - 140
     };
 
-    endDoors = {
-        realDoor: { x: 2150, y: height - 380, w: 70, h: 120 },
-        fakeDoor: { x: 2300, y: height - 410, w: 110, h: 150 }
-    };
+    endDoor = { x: 2300, y: height - 410, w: 110, h: 150 };
 
     keyBlock = {
         x: illusionRoom.x + 220,
