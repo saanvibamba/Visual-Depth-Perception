@@ -1,5 +1,5 @@
-## DepthShift
-# A Depth Perception Puzzle Platformer
+# DepthShift
+## A Depth Perception Puzzle Platformer
 
 Overview
 
