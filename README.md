@@ -10,6 +10,7 @@ The game challenges players to navigate a 2D environment that visually mimics 3D
 - Shading and shadow
 - Parallax motion
 - Perspective lines
+
 The player must activate a hidden key block, collect the revealed key, and unlock the exit door to complete the level.
 
 ## Psychological Concepts Used
