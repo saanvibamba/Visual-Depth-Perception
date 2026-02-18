@@ -53,3 +53,6 @@ Players construct their perception of depth using prior experience with platform
 
 ## Educational Purpose
 This project demonstrates how visual art and game design can operationalize psychological principles. It serves as an interactive exploration of how humans construct depth perception from flat visual stimuli.
+
+## Link To Play
+https://saanvibamba.github.io/Visual-Depth-Perception/
